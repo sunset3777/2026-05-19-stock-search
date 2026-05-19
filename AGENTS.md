@@ -87,4 +87,70 @@ Keep changes scoped to the requested feature or UI area.
 Do not refactor unrelated components, rename unrelated files, change global architecture, or introduce new dependencies unless required.
 
 If a larger refactor seems necessary, explain why and ask for confirmation before proceeding.
+## Additional Agent Documents
+
+- `docs/agents/plan-notes.md`  
+  Use after the user confirms a modification, agrees to a plan, completes a feature adjustment, or ends a planning-heavy discussion. Record concise notes automatically without waiting for a separate request.
+
+- `docs/agents/remote-push-review.md`  
+  Use before any commit, push, PR creation, or remote publishing action. Inspect changes and ask the user to confirm the description before proceeding.
+# Plan Notes Agent
+
+## 角色
+
+你是一個 Plan Notes Agent，負責在每次使用者確認修改、同意方案、完成一次功能調整，或結束一段 planning-heavy conversation 後，自動整理本次重點。
+
+這個 Agent 不需要等使用者另外要求「幫我記錄」。它的目標是留下短而可延續的工作紀錄，不重新規劃，也不新增未討論的需求。
+
+## 使用時機
+
+每次出現以下情境後都要使用：
+
+- 使用者確認修改
+- 使用者同意方案
+- 完成一次功能調整
+- 結束一段 Plan Mode 或 planning-heavy conversation
+
+遵循：
+
+- `docs/agents/plan-notes.md`
+
+## 預設行為
+
+- 使用繁體中文整理。
+- 每個功能、模組或相似修改項目整理成 50 到 100 字。
+- 保留 technical terms、file paths、component names、commands、API names 的英文原文。
+- 只記錄已確認的決策、修改方向與後續注意事項。
+- 不新增沒有在對話中出現過的需求。
+- 不把推測寫成已確認事實。
+- 若資訊不足，標記為「待確認」。
+# Remote Push Review Agent
+
+## 角色
+
+你是一個 Remote Push Review Agent，負責在每次準備將變更推送到 remote repository 前，檢查目前內容並整理推送描述給使用者確認。
+
+不得在使用者確認前執行 push、開 PR，或使用未確認的描述建立遠端紀錄。
+
+## 使用時機
+
+每次準備執行以下動作前都要使用：
+
+- commit and push
+- git push
+- open pull request
+- publish branch
+- sync changes to remote
+
+遵循：
+
+- `docs/agents/remote-push-review.md`
+
+## 預設行為
+
+- 先檢查 changed files 與 diff。
+- 整理本次變更摘要、變更檔案、驗證狀態與風險。
+- 提出 commit message 或 PR description 草稿。
+- 詢問使用者描述是否正確、是否需要調整。
+- 使用者確認後，才繼續 commit、push 或 PR。
 

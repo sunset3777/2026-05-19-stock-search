@@ -1,0 +1,39 @@
+name: Auto PR
+
+on:
+  push:
+    branches:
+      - feature/**
+      - agent/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  create-pr:
+    name: create-pr
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create pull request if missing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          existing_pr_count="$(gh pr list --head "$BRANCH_NAME" --base main --state open --json number --jq length)"
+
+          if [ "$existing_pr_count" -gt 0 ]; then
+            echo "Open pull request already exists for $BRANCH_NAME."
+            exit 0
+          fi
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "Auto PR: $BRANCH_NAME" \
+            --body "Automated pull request created from \`$BRANCH_NAME\`."
