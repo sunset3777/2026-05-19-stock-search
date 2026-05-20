@@ -1,12 +1,16 @@
-import Link from "next/link";
 import type { StockProfile } from "../types/landing.types";
 
 type CompanyFocusProps = {
+  onSelectStock: (stock: StockProfile) => void;
   selectedStock: StockProfile;
   stocks: StockProfile[];
 };
 
-export function CompanyFocus({ selectedStock, stocks }: CompanyFocusProps) {
+export function CompanyFocus({
+  onSelectStock,
+  selectedStock,
+  stocks,
+}: CompanyFocusProps) {
   return (
     <section className="pt-14" id="companies">
       <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
@@ -14,12 +18,9 @@ export function CompanyFocus({ selectedStock, stocks }: CompanyFocusProps) {
           <p className="text-sm font-medium text-blue-300">Company Focus</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">企業資訊與投資脈絡</h2>
         </div>
-        <Link
-          className="text-sm font-medium text-blue-300 transition hover:text-blue-200"
-          href={`/stocks/${selectedStock.symbol}`}
-        >
-          查看完整企業頁
-        </Link>
+        <p className="max-w-md text-sm leading-6 text-slate-400">
+          這裡用來理解目前焦點股票的公司定位。若要查看完整研究頁，請使用搜尋或觀察清單的詳細入口。
+        </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
@@ -47,10 +48,15 @@ export function CompanyFocus({ selectedStock, stocks }: CompanyFocusProps) {
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
           {stocks.slice(0, 3).map((stock) => (
-            <Link
-              className="rounded-lg border border-white/10 bg-white/[0.03] p-4 transition hover:border-blue-400/40 hover:bg-blue-400/5"
-              href={`/stocks/${stock.symbol}`}
+            <button
+              className={`rounded-lg border p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300 ${
+                stock.symbol === selectedStock.symbol
+                  ? "border-blue-400/50 bg-blue-400/10"
+                  : "border-white/10 bg-white/[0.03] hover:border-blue-400/40 hover:bg-blue-400/5"
+              }`}
               key={stock.symbol}
+              onClick={() => onSelectStock(stock)}
+              type="button"
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -62,7 +68,7 @@ export function CompanyFocus({ selectedStock, stocks }: CompanyFocusProps) {
               <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">
                 {stock.thesis}
               </p>
-            </Link>
+            </button>
           ))}
         </div>
       </div>
