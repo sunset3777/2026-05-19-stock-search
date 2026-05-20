@@ -86,7 +86,10 @@ export function LandingPage() {
             selectedSymbol={selectedStock?.symbol ?? null}
             stocks={stocks}
           />
-          <NewsSection sourceDate={stockResult?.source.updatedDate ?? null} />
+          <NewsSection
+            dataSources={stockResult?.dataSources ?? []}
+            sourceDate={stockResult?.source.updatedDate ?? null}
+          />
         </div>
         <AgentSummary />
       </div>

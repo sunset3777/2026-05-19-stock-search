@@ -1,23 +1,19 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { fetchStockDetail } from "@/features/stocks/api/client";
 import type {
+  DataSourceInfo,
   StockDetail,
+  StockFinancialPeriod,
   StockMonthlyRevenue,
   StockPricePoint,
 } from "@/features/stocks/types/stocks.types";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 type HistoryRange = "1M" | "3M" | "1Y";
 
@@ -46,7 +42,6 @@ export default function StockDetailPage() {
 
         setIsLoading(true);
         setError("");
-
         return fetchStockDetail(symbol);
       })
       .then((result) => {
@@ -82,13 +77,15 @@ export default function StockDetailPage() {
   const historyStats = useMemo(() => getHistoryStats(rangedHistory), [rangedHistory]);
   const recentRevenue = useMemo(() => stock?.revenue.points.slice(-12) ?? [], [stock]);
   const latestRevenue = recentRevenue[recentRevenue.length - 1] ?? null;
+  const financialPeriods = stock?.financials.periods.slice(0, 4) ?? [];
+  const latestFinancial = financialPeriods[0] ?? null;
 
   if (isLoading) {
     return (
       <StockPageShell>
         <CenteredPanel
           title="正在讀取股票資料"
-          text="正在取得 TWSE 行情、FinMind 歷史股價與月營收。"
+          text="正在取得 TWSE 交易資料、FinMind 股價、月營收與財報資料。"
         />
       </StockPageShell>
     );
@@ -102,13 +99,15 @@ export default function StockDetailPage() {
           <section className="mt-8 rounded-lg border border-white/10 bg-slate-900 p-6">
             <h1 className="text-3xl font-semibold text-white">找不到股票資料</h1>
             <p className="mt-4 text-slate-400">
-              {error || "目前沒有回傳這個股票代號的資料。"}
+              {error || "目前沒有取得這檔股票的公開資料。"}
             </p>
           </section>
         </div>
       </StockPageShell>
     );
   }
+
+  const isEtf = stock.instrument.type === "etf";
 
   return (
     <StockPageShell>
@@ -118,14 +117,16 @@ export default function StockDetailPage() {
           <div className="grid gap-6 lg:grid-cols-[1fr_420px] lg:items-end">
             <div>
               <p className="text-sm font-medium text-blue-300">
-                {stock.company?.industry ?? stock.summary.industry ?? "上市股票"}
+                {isEtf
+                  ? "ETF"
+                  : stock.company?.industry ?? stock.summary.industry ?? "上市股票"}
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-normal text-white sm:text-5xl">
                 {stock.summary.name} {stock.summary.symbol}
               </h1>
               <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
-                TWSE 日成交資料日期 {stock.source.updatedDate}。歷史股價與月營收使用 FinMind
-                資料集，用於趨勢觀察，不等同即時報價或投資保證。
+                TWSE 日成交資料日期 {stock.source.updatedDate}。個股顯示公司財務三表；ETF
+                不適用公司財報，頁面會保留交易、股價與成交資訊。
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
@@ -146,9 +147,10 @@ export default function StockDetailPage() {
             <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
                 <p className="text-sm font-medium text-blue-300">Price History</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">歷史股價走勢</h2>
+                <h2 className="mt-2 text-2xl font-semibold text-white">股價走勢</h2>
+                <p className="mt-2 text-sm text-slate-400">{stock.history.source.message}</p>
               </div>
-              <div className="flex flex-wrap gap-2" role="tablist" aria-label="歷史股價區間">
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label="股價區間">
                 {historyRanges.map((range) => (
                   <button
                     aria-selected={activeRange === range}
@@ -169,9 +171,7 @@ export default function StockDetailPage() {
             </div>
 
             {stock.history.unavailableReason && (
-              <p className="mb-4 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm leading-6 text-amber-100">
-                {stock.history.unavailableReason}
-              </p>
+              <Notice source={stock.history.source} text={stock.history.unavailableReason} />
             )}
 
             <div className="rounded-lg border border-white/10 bg-slate-950 p-4">
@@ -179,9 +179,7 @@ export default function StockDetailPage() {
                 {rangedHistory.length > 1 ? (
                   <PriceChart points={rangedHistory} />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-500">
-                    歷史股價資料不足，無法繪製走勢。
-                  </div>
+                  <EmptyState text="歷史股價資料不足，暫時無法繪製走勢。" />
                 )}
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-4">
@@ -195,42 +193,59 @@ export default function StockDetailPage() {
 
           <aside className="rounded-lg border border-white/10 bg-slate-900 p-5">
             <p className="text-sm font-medium text-blue-300">Valuation</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">估值指標</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-white">估值概況</h2>
             <div className="mt-5 flex flex-col gap-3">
               <InfoCard label="本益比" text={formatNumber(stock.valuation?.peRatio ?? null)} />
               <InfoCard label="殖利率" text={formatPercent(stock.valuation?.dividendYield ?? null)} />
               <InfoCard label="股價淨值比" text={formatNumber(stock.valuation?.pbRatio ?? null)} />
-              <InfoCard label="月平均價" text={formatNumber(stock.monthlyAveragePrice)} />
+              <InfoCard label="月均價" text={formatNumber(stock.monthlyAveragePrice)} />
             </div>
           </aside>
         </section>
 
-        <ReportPanel title="月營收趨勢">
-          {stock.revenue.unavailableReason && (
-            <p className="mb-4 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm leading-6 text-amber-100">
-              {stock.revenue.unavailableReason}
-            </p>
-          )}
-          {recentRevenue.length > 0 && latestRevenue ? (
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
-              <div className="rounded-lg border border-white/10 bg-slate-950 p-4">
-                <div className="h-64">
-                  <RevenueChart points={recentRevenue} />
+        {!isEtf && (
+          <ReportPanel title="月營收趨勢">
+            {stock.revenue.unavailableReason && (
+              <Notice source={stock.revenue.source} text={stock.revenue.unavailableReason} />
+            )}
+            {recentRevenue.length > 0 && latestRevenue ? (
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
+                <div className="rounded-lg border border-white/10 bg-slate-950 p-4">
+                  <div className="h-64">
+                    <RevenueChart points={recentRevenue} />
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                  <InfoTile
+                    label="最新月份"
+                    value={`${latestRevenue.revenueYear}/${padMonth(latestRevenue.revenueMonth)}`}
+                  />
+                  <InfoTile label="月營收" value={formatCompact(latestRevenue.revenue)} />
+                  <InfoTile label="月增率 MoM" value={formatPercent(latestRevenue.momPercent)} />
+                  <InfoTile label="年增率 YoY" value={formatPercent(latestRevenue.yoyPercent)} />
+                  <InfoTile label="公告日期" value={latestRevenue.announceDate ?? "暫無"} />
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                <InfoTile
-                  label="最新月份"
-                  value={`${latestRevenue.revenueYear}/${padMonth(latestRevenue.revenueMonth)}`}
-                />
-                <InfoTile label="月營收" value={formatCompact(latestRevenue.revenue)} />
-                <InfoTile label="月增率 MoM" value={formatPercent(latestRevenue.momPercent)} />
-                <InfoTile label="年增率 YoY" value={formatPercent(latestRevenue.yoyPercent)} />
-                <InfoTile label="公告日期" value={latestRevenue.announceDate ?? "暫無"} />
-              </div>
-            </div>
+            ) : (
+              <EmptyState text="目前沒有可顯示的月營收資料。" />
+            )}
+          </ReportPanel>
+        )}
+
+        <ReportPanel title={isEtf ? "ETF 資料說明" : "財報三表摘要"}>
+          {isEtf ? (
+            <EtfFinancialsMessage stock={stock} />
           ) : (
-            <p className="text-sm leading-7 text-slate-400">目前沒有可顯示的月營收資料。</p>
+            <>
+              {stock.financials.unavailableReason && (
+                <Notice source={stock.financials.source} text={stock.financials.unavailableReason} />
+              )}
+              {latestFinancial ? (
+                <FinancialsPanel latest={latestFinancial} periods={financialPeriods} />
+              ) : (
+                <EmptyState text="目前沒有可顯示的財報三表資料。" />
+              )}
+            </>
           )}
         </ReportPanel>
 
@@ -245,8 +260,10 @@ export default function StockDetailPage() {
                 <InfoTile label="實收資本額" value={formatCompact(stock.company.capital)} />
                 <InfoTile label="公司網站" value={stock.company.website ?? "暫無"} />
               </div>
+            ) : isEtf ? (
+              <EmptyState text="ETF 沒有上市公司基本資料，此頁保留交易與價格資料。" />
             ) : (
-              <p className="text-sm leading-7 text-slate-400">TWSE 目前沒有提供這檔股票的公司基本資料。</p>
+              <EmptyState text="TWSE 目前沒有回傳這檔股票的公司基本資料。" />
             )}
           </ReportPanel>
 
@@ -264,6 +281,102 @@ export default function StockDetailPage() {
   );
 }
 
+function EtfFinancialsMessage({ stock }: { stock: StockDetail }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-slate-950 p-5">
+      <p className="text-sm font-medium text-blue-300">
+        {stock.instrument.category ?? "ETF"}
+      </p>
+      <h3 className="mt-2 text-xl font-semibold text-white">
+        {stock.summary.symbol} 是 ETF，不適用公司財務三表
+      </h3>
+      <p className="mt-4 text-sm leading-7 text-slate-400">
+        ETF 不是單一營運公司，因此不會有損益表、資產負債表與現金流量表。此頁會保留可用的交易資料、
+        股價走勢、成交量與成交值；後續可再補 ETF 成分股、淨值、折溢價與配息資料。
+      </p>
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <InfoTile label="收盤價" value={formatNumber(stock.summary.closePrice)} />
+        <InfoTile label="成交量" value={formatCompact(stock.summary.tradeVolume)} />
+        <InfoTile label="成交值" value={formatCompact(stock.summary.tradeValue)} />
+      </div>
+    </div>
+  );
+}
+
+function FinancialsPanel({
+  latest,
+  periods,
+}: {
+  latest: StockFinancialPeriod;
+  periods: StockFinancialPeriod[];
+}) {
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-sm font-medium text-blue-300">Latest Quarter</p>
+          <h3 className="mt-2 text-2xl font-semibold text-white">{latest.date}</h3>
+        </div>
+        <p className="max-w-lg text-sm leading-6 text-slate-400">
+          以下為最新季度核心財務指標，數字以 FinMind 財報三表整理。
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <FinancialMetricCard label="營收" value={formatCompact(latest.incomeStatement.revenue)} />
+        <FinancialMetricCard label="EPS" value={formatNumber(latest.incomeStatement.eps)} />
+        <FinancialMetricCard label="營業利益" value={formatCompact(latest.incomeStatement.operatingIncome)} />
+        <FinancialMetricCard label="淨利" value={formatCompact(latest.incomeStatement.netIncome)} />
+        <FinancialMetricCard label="毛利率" value={formatPercent(latest.incomeStatement.grossMargin)} />
+        <FinancialMetricCard label="淨利率" value={formatPercent(latest.incomeStatement.netMargin)} />
+        <FinancialMetricCard label="負債比" value={formatPercent(latest.balanceSheet.debtRatio)} />
+        <FinancialMetricCard label="自由現金流" value={formatCompact(latest.cashFlow.freeCashFlow)} />
+      </div>
+
+      <div>
+        <h3 className="text-base font-semibold text-white">最近 4 季財務表現</h3>
+        <div className="mt-4 overflow-x-auto rounded-lg border border-white/10">
+          <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+            <thead className="bg-slate-950 text-slate-400">
+              <tr>
+                <th className="px-4 py-3 font-medium">季度</th>
+                <th className="px-4 py-3 font-medium">營收</th>
+                <th className="px-4 py-3 font-medium">EPS</th>
+                <th className="px-4 py-3 font-medium">毛利率</th>
+                <th className="px-4 py-3 font-medium">淨利率</th>
+                <th className="px-4 py-3 font-medium">負債比</th>
+                <th className="px-4 py-3 font-medium">自由現金流</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/10">
+              {periods.map((period) => (
+                <tr className="text-slate-200" key={period.date}>
+                  <td className="px-4 py-3 text-slate-400">{period.date}</td>
+                  <td className="px-4 py-3">{formatCompact(period.incomeStatement.revenue)}</td>
+                  <td className="px-4 py-3">{formatNumber(period.incomeStatement.eps)}</td>
+                  <td className="px-4 py-3">{formatPercent(period.incomeStatement.grossMargin)}</td>
+                  <td className="px-4 py-3">{formatPercent(period.incomeStatement.netMargin)}</td>
+                  <td className="px-4 py-3">{formatPercent(period.balanceSheet.debtRatio)}</td>
+                  <td className="px-4 py-3">{formatCompact(period.cashFlow.freeCashFlow)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FinancialMetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="rounded-lg border border-white/10 bg-slate-950 p-4">
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="mt-3 text-xl font-semibold text-white">{value}</p>
+    </article>
+  );
+}
+
 function StockPageShell({ children }: { children: React.ReactNode }) {
   return (
     <main
@@ -277,7 +390,7 @@ function StockPageShell({ children }: { children: React.ReactNode }) {
 function BackLink() {
   return (
     <Link className="w-fit text-sm font-medium text-blue-300 hover:text-blue-200" href="/">
-      回到首頁
+      返回首頁
     </Link>
   );
 }
@@ -326,7 +439,7 @@ function PriceChart({ points }: { points: StockPricePoint[] }) {
     value: point.close,
   }));
 
-  return <LineChart ariaLabel="歷史收盤價走勢" points={chartPoints} stroke="#60a5fa" />;
+  return <LineChart ariaLabel="股價收盤走勢" points={chartPoints} stroke="#60a5fa" />;
 }
 
 function RevenueChart({ points }: { points: StockMonthlyRevenue[] }) {
@@ -354,7 +467,7 @@ function LineChart({
   const range = max - min || 1;
   const path = points
     .map((point, index) => {
-      const x = (index / (points.length - 1)) * width;
+      const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width;
       const y = height - ((point.value - min) / range) * height;
       return `${index === 0 ? "M" : "L"} ${x} ${y}`;
     })
@@ -402,13 +515,7 @@ function InfoCard({ label, text }: { label: string; text: string }) {
   );
 }
 
-function ReportPanel({
-  children,
-  title,
-}: {
-  children: React.ReactNode;
-  title: string;
-}) {
+function ReportPanel({ children, title }: { children: ReactNode; title: string }) {
   return (
     <section className="rounded-lg border border-white/10 bg-slate-900 p-5">
       <h2 className="text-xl font-semibold text-white">{title}</h2>
@@ -426,6 +533,30 @@ function InfoTile({ label, value }: { label: string; value: string }) {
   );
 }
 
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="flex min-h-32 items-center justify-center rounded-lg border border-dashed border-white/10 bg-slate-950 p-6 text-center text-sm leading-6 text-slate-400">
+      {text}
+    </div>
+  );
+}
+
+function Notice({ source, text }: { source: DataSourceInfo; text: string }) {
+  return (
+    <p className={`mb-4 rounded-md border px-3 py-2 text-sm leading-6 ${getNoticeClass(source.status)}`}>
+      {text}
+    </p>
+  );
+}
+
+function getNoticeClass(status: DataSourceInfo["status"]) {
+  if (status === "premium_required" || status === "fallback") {
+    return "border-amber-300/20 bg-amber-300/10 text-amber-100";
+  }
+
+  return "border-slate-300/10 bg-slate-800 text-slate-300";
+}
+
 function filterHistoryByRange(points: StockPricePoint[], range: HistoryRange) {
   const countByRange: Record<HistoryRange, number> = {
     "1M": 22,
@@ -438,11 +569,7 @@ function filterHistoryByRange(points: StockPricePoint[], range: HistoryRange) {
 
 function getHistoryStats(points: StockPricePoint[]) {
   if (points.length === 0) {
-    return {
-      high: null,
-      low: null,
-      returnPercent: null,
-    };
+    return { high: null, low: null, returnPercent: null };
   }
 
   const first = points[0];
@@ -451,11 +578,7 @@ function getHistoryStats(points: StockPricePoint[]) {
   const low = Math.min(...points.map((point) => point.low));
   const returnPercent = first.close === 0 ? null : ((last.close - first.close) / first.close) * 100;
 
-  return {
-    high,
-    low,
-    returnPercent,
-  };
+  return { high, low, returnPercent };
 }
 
 function formatNumber(value: number | null) {
