@@ -1,5 +1,16 @@
-import type { StockDetail, StockListResult, StockSummary } from "../types/stocks.types";
-import { getStockHistory, getStockRevenue } from "./finmind";
+import type {
+  DataSourceInfo,
+  StockDetail,
+  StockListResult,
+  StockSummary,
+} from "../types/stocks.types";
+import {
+  getFinancialsNotApplicableForEtf,
+  getInstrumentProfile,
+  getStockFinancials,
+  getStockHistory,
+  getStockRevenue,
+} from "./finmind";
 
 const TWSE_BASE_URL = "https://openapi.twse.com.tw/v1";
 
@@ -107,16 +118,29 @@ export async function getStockList(query: string, limit: number): Promise<StockL
       provider: "TWSE",
       updatedDate: stocks[0]?.date ?? null,
     },
+    dataSources: [
+      createTwseSource(
+        "twse-list",
+        "TWSE 上市日成交與公司資料",
+        stocks.length > 0 ? "available" : "no_data",
+        stocks.length > 0 ? "首頁股票清單資料可用。" : "TWSE 目前沒有回傳股票清單資料。",
+      ),
+    ],
   };
 }
 
 export async function getStockDetail(symbol: string): Promise<StockDetail | null> {
   const normalizedSymbol = symbol.trim().toUpperCase();
-  const [{ daily, averages, valuations, companies }, history, revenue] = await Promise.all([
+  const [{ daily, averages, valuations, companies }, history, revenue, instrument] = await Promise.all([
     fetchTwseDatasets(),
     getStockHistory(normalizedSymbol),
     getStockRevenue(normalizedSymbol),
+    getInstrumentProfile(normalizedSymbol),
   ]);
+  const financials =
+    instrument.type === "etf"
+      ? getFinancialsNotApplicableForEtf()
+      : await getStockFinancials(normalizedSymbol);
   const dailyRow = daily.find((row) => row.Code.toUpperCase() === normalizedSymbol);
 
   if (!dailyRow) {
@@ -130,6 +154,7 @@ export async function getStockDetail(symbol: string): Promise<StockDetail | null
 
   return {
     summary,
+    instrument,
     ohlc: {
       open: parseNumber(dailyRow.OpeningPrice),
       high: parseNumber(dailyRow.HighestPrice),
@@ -147,10 +172,47 @@ export async function getStockDetail(symbol: string): Promise<StockDetail | null
     company: company ? toCompany(company) : null,
     history,
     revenue,
+    financials,
+    dataSources: [
+      createTwseSource("twse-daily", "TWSE 日成交資料", "available", "日成交資料可用。"),
+      createTwseSource(
+        "twse-valuation",
+        "TWSE 估值資料",
+        valuation ? "available" : "no_data",
+        valuation ? "估值資料可用。" : "TWSE 目前沒有回傳估值資料。",
+      ),
+      createTwseSource(
+        "twse-company",
+        "TWSE 公司基本資料",
+        company ? "available" : "no_data",
+        company ? "公司基本資料可用。" : "TWSE 目前沒有回傳公司基本資料。",
+      ),
+      history.source,
+      revenue.source,
+      instrument.source,
+      financials.source,
+    ],
     source: {
       provider: "TWSE",
       updatedDate: summary.date,
     },
+  };
+}
+
+function createTwseSource(
+  id: string,
+  label: string,
+  status: DataSourceInfo["status"],
+  message: string,
+): DataSourceInfo {
+  return {
+    id,
+    label,
+    provider: "TWSE",
+    dataset: "TWSE OpenAPI",
+    accessLevel: "free_safe",
+    status,
+    message,
   };
 }
 
