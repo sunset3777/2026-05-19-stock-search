@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useRouter } from "next/router";
+import { useState } from "react";
 import type { StockProfile } from "../types/landing.types";
 import { MiniSparkline } from "./MiniSparkline";
 
@@ -17,6 +19,40 @@ export function HeroSection({
   query,
   selectedStock,
 }: HeroSectionProps) {
+  const router = useRouter();
+  const [searchError, setSearchError] = useState("");
+
+  function findExactStock() {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return filteredStocks.find(
+      (stock) =>
+        stock.symbol.toLowerCase() === normalizedQuery ||
+        stock.name.toLowerCase() === normalizedQuery,
+    );
+  }
+
+  function handleSearchSubmit() {
+    const exactStock = findExactStock();
+
+    if (exactStock) {
+      void router.push(`/stocks/${exactStock.symbol}`);
+      return;
+    }
+
+    setSearchError("找不到完全符合的股票，請輸入可用代號或點選下方建議。");
+  }
+
+  function handleQueryChange(value: string) {
+    setSearchError("");
+    onQueryChange(value);
+  }
+
+  function handleSuggestionClick(stock: StockProfile) {
+    onSelectStock(stock);
+    void router.push(`/stocks/${stock.symbol}`);
+  }
+
   return (
     <section className="border-b border-white/10 bg-slate-950">
       <div className="mx-auto grid min-h-[680px] w-full max-w-7xl gap-10 px-5 py-8 sm:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:px-10 lg:py-10">
@@ -70,20 +106,38 @@ export function HeroSection({
                 <input
                   className="h-12 min-w-0 flex-1 rounded-md border border-white/10 bg-slate-900 px-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20"
                   id="stock-search"
-                  onChange={(event) => onQueryChange(event.target.value)}
+                  onChange={(event) => handleQueryChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      handleSearchSubmit();
+                    }
+                  }}
                   placeholder="輸入 2330、台積電、半導體..."
                   value={query}
                 />
-                <span className="inline-flex h-12 items-center justify-center rounded-md bg-slate-800 px-4 text-sm text-slate-300">
-                  {filteredStocks.length} 筆結果
-                </span>
+                <button
+                  className="inline-flex h-12 items-center justify-center rounded-md bg-blue-500 px-4 text-sm font-semibold text-white transition hover:bg-blue-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300"
+                  onClick={handleSearchSubmit}
+                  type="button"
+                >
+                  搜尋
+                </button>
               </div>
+              <div className="mt-3 flex flex-col gap-1 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                <span>{filteredStocks.length} 筆結果</span>
+                <span>可用代號：2330、2454、2308、2317</span>
+              </div>
+              {(searchError || (query.trim() && filteredStocks.length === 0)) && (
+                <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm leading-6 text-amber-100">
+                  {searchError || "找不到符合條件的股票，請改用可用代號搜尋。"}
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap gap-2">
                 {filteredStocks.slice(0, 4).map((stock) => (
                   <button
                     className="rounded-md border border-white/10 px-3 py-2 text-sm text-slate-300 transition hover:border-blue-300 hover:text-blue-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300"
                     key={stock.symbol}
-                    onClick={() => onSelectStock(stock)}
+                    onClick={() => handleSuggestionClick(stock)}
                     type="button"
                   >
                     {stock.symbol} {stock.name}
