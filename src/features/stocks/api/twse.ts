@@ -1,5 +1,5 @@
 import type { StockDetail, StockListResult, StockSummary } from "../types/stocks.types";
-import { getStockHistory } from "./finmind";
+import { getStockHistory, getStockRevenue } from "./finmind";
 
 const TWSE_BASE_URL = "https://openapi.twse.com.tw/v1";
 
@@ -112,9 +112,10 @@ export async function getStockList(query: string, limit: number): Promise<StockL
 
 export async function getStockDetail(symbol: string): Promise<StockDetail | null> {
   const normalizedSymbol = symbol.trim().toUpperCase();
-  const [{ daily, averages, valuations, companies }, history] = await Promise.all([
+  const [{ daily, averages, valuations, companies }, history, revenue] = await Promise.all([
     fetchTwseDatasets(),
     getStockHistory(normalizedSymbol),
+    getStockRevenue(normalizedSymbol),
   ]);
   const dailyRow = daily.find((row) => row.Code.toUpperCase() === normalizedSymbol);
 
@@ -145,6 +146,7 @@ export async function getStockDetail(symbol: string): Promise<StockDetail | null
     monthlyAveragePrice: average ? parseNumber(average.MonthlyAveragePrice) : null,
     company: company ? toCompany(company) : null,
     history,
+    revenue,
     source: {
       provider: "TWSE",
       updatedDate: summary.date,
