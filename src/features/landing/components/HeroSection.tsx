@@ -88,14 +88,14 @@ export function HeroSection({
                 className="inline-flex h-12 items-center justify-center rounded-md bg-blue-500 px-5 text-sm font-semibold text-white transition hover:bg-blue-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300"
                 href="#watchlist"
               >
-                查看 Demo
+                查看觀察清單
               </a>
-              <Link
+              <a
                 className="inline-flex h-12 items-center justify-center rounded-md border border-white/15 px-5 text-sm font-semibold text-slate-100 transition hover:border-white/30 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300"
-                href={`/stocks/${selectedStock.symbol}`}
+                href="#companies"
               >
-                查看 {selectedStock.name}
-              </Link>
+                了解企業焦點
+              </a>
             </div>
 
             <div className="mt-8 max-w-xl rounded-lg border border-white/10 bg-white/[0.03] p-3">

@@ -46,7 +46,11 @@ export function LandingPage() {
       />
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 pb-16 sm:px-8 lg:px-10">
-        <CompanyFocus selectedStock={selectedStock} stocks={stockProfiles} />
+        <CompanyFocus
+          onSelectStock={handleSelectStock}
+          selectedStock={selectedStock}
+          stocks={stockProfiles}
+        />
         <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <WatchlistSection
             onSelectStock={handleSelectStock}
