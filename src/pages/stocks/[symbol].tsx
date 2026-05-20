@@ -3,7 +3,11 @@ import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { fetchStockDetail } from "@/features/stocks/api/client";
-import type { StockDetail, StockPricePoint } from "@/features/stocks/types/stocks.types";
+import type {
+  StockDetail,
+  StockMonthlyRevenue,
+  StockPricePoint,
+} from "@/features/stocks/types/stocks.types";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -76,11 +80,16 @@ export default function StockDetailPage() {
   }, [activeRange, stock]);
 
   const historyStats = useMemo(() => getHistoryStats(rangedHistory), [rangedHistory]);
+  const recentRevenue = useMemo(() => stock?.revenue.points.slice(-12) ?? [], [stock]);
+  const latestRevenue = recentRevenue[recentRevenue.length - 1] ?? null;
 
   if (isLoading) {
     return (
       <StockPageShell>
-        <CenteredPanel title="正在讀取股票資料" text="正在取得 TWSE 行情與 FinMind 歷史股價。" />
+        <CenteredPanel
+          title="正在讀取股票資料"
+          text="正在取得 TWSE 行情、FinMind 歷史股價與月營收。"
+        />
       </StockPageShell>
     );
   }
@@ -115,9 +124,8 @@ export default function StockDetailPage() {
                 {stock.summary.name} {stock.summary.symbol}
               </h1>
               <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
-                TWSE 日成交資料日期 {stock.source.updatedDate}。歷史走勢使用{" "}
-                {stock.history.isAdjusted ? "FinMind 還原股價" : "FinMind 一般日線"}，
-                用於趨勢觀察，不等同即時報價或投資保證。
+                TWSE 日成交資料日期 {stock.source.updatedDate}。歷史股價與月營收使用 FinMind
+                資料集，用於趨勢觀察，不等同即時報價或投資保證。
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
@@ -177,10 +185,10 @@ export default function StockDetailPage() {
                 )}
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-4">
-                <TechnicalCard label="區間報酬" value={formatPercent(historyStats.returnPercent)} />
-                <TechnicalCard label="區間高點" value={formatNumber(historyStats.high)} />
-                <TechnicalCard label="區間低點" value={formatNumber(historyStats.low)} />
-                <TechnicalCard label="交易日數" value={`${rangedHistory.length} 日`} />
+                <MetricCard label="區間報酬" value={formatPercent(historyStats.returnPercent)} />
+                <MetricCard label="區間高點" value={formatNumber(historyStats.high)} />
+                <MetricCard label="區間低點" value={formatNumber(historyStats.low)} />
+                <MetricCard label="交易日數" value={`${rangedHistory.length} 日`} />
               </div>
             </div>
           </div>
@@ -189,13 +197,42 @@ export default function StockDetailPage() {
             <p className="text-sm font-medium text-blue-300">Valuation</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">估值指標</h2>
             <div className="mt-5 flex flex-col gap-3">
-              <AgentCard label="本益比" text={formatNumber(stock.valuation?.peRatio ?? null)} />
-              <AgentCard label="殖利率" text={formatPercent(stock.valuation?.dividendYield ?? null)} />
-              <AgentCard label="股價淨值比" text={formatNumber(stock.valuation?.pbRatio ?? null)} />
-              <AgentCard label="月平均價" text={formatNumber(stock.monthlyAveragePrice)} />
+              <InfoCard label="本益比" text={formatNumber(stock.valuation?.peRatio ?? null)} />
+              <InfoCard label="殖利率" text={formatPercent(stock.valuation?.dividendYield ?? null)} />
+              <InfoCard label="股價淨值比" text={formatNumber(stock.valuation?.pbRatio ?? null)} />
+              <InfoCard label="月平均價" text={formatNumber(stock.monthlyAveragePrice)} />
             </div>
           </aside>
         </section>
+
+        <ReportPanel title="月營收趨勢">
+          {stock.revenue.unavailableReason && (
+            <p className="mb-4 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm leading-6 text-amber-100">
+              {stock.revenue.unavailableReason}
+            </p>
+          )}
+          {recentRevenue.length > 0 && latestRevenue ? (
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
+              <div className="rounded-lg border border-white/10 bg-slate-950 p-4">
+                <div className="h-64">
+                  <RevenueChart points={recentRevenue} />
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                <InfoTile
+                  label="最新月份"
+                  value={`${latestRevenue.revenueYear}/${padMonth(latestRevenue.revenueMonth)}`}
+                />
+                <InfoTile label="月營收" value={formatCompact(latestRevenue.revenue)} />
+                <InfoTile label="月增率 MoM" value={formatPercent(latestRevenue.momPercent)} />
+                <InfoTile label="年增率 YoY" value={formatPercent(latestRevenue.yoyPercent)} />
+                <InfoTile label="公告日期" value={latestRevenue.announceDate ?? "暫無"} />
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm leading-7 text-slate-400">目前沒有可顯示的月營收資料。</p>
+          )}
+        </ReportPanel>
 
         <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
           <ReportPanel title="公司基本資料">
@@ -284,33 +321,53 @@ function TopMetric({
 }
 
 function PriceChart({ points }: { points: StockPricePoint[] }) {
+  const chartPoints = points.map((point) => ({
+    date: point.date,
+    value: point.close,
+  }));
+
+  return <LineChart ariaLabel="歷史收盤價走勢" points={chartPoints} stroke="#60a5fa" />;
+}
+
+function RevenueChart({ points }: { points: StockMonthlyRevenue[] }) {
+  const chartPoints = points.map((point) => ({
+    date: `${point.revenueYear}/${padMonth(point.revenueMonth)}`,
+    value: point.revenue,
+  }));
+
+  return <LineChart ariaLabel="月營收趨勢" points={chartPoints} stroke="#34d399" />;
+}
+
+function LineChart({
+  ariaLabel,
+  points,
+  stroke,
+}: {
+  ariaLabel: string;
+  points: { date: string; value: number }[];
+  stroke: string;
+}) {
   const width = 900;
   const height = 280;
-  const min = Math.min(...points.map((point) => point.close));
-  const max = Math.max(...points.map((point) => point.close));
+  const min = Math.min(...points.map((point) => point.value));
+  const max = Math.max(...points.map((point) => point.value));
   const range = max - min || 1;
   const path = points
     .map((point, index) => {
       const x = (index / (points.length - 1)) * width;
-      const y = height - ((point.close - min) / range) * height;
+      const y = height - ((point.value - min) / range) * height;
       return `${index === 0 ? "M" : "L"} ${x} ${y}`;
     })
     .join(" ");
 
   return (
     <svg
-      aria-label="歷史收盤價走勢"
+      aria-label={ariaLabel}
       className="h-full w-full"
       preserveAspectRatio="none"
       role="img"
       viewBox={`0 0 ${width} ${height}`}
     >
-      <defs>
-        <linearGradient id="chartGlow" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.3" />
-          <stop offset="100%" stopColor="#60a5fa" stopOpacity="0" />
-        </linearGradient>
-      </defs>
       {[0, 1, 2, 3].map((line) => (
         <line
           key={line}
@@ -322,13 +379,12 @@ function PriceChart({ points }: { points: StockPricePoint[] }) {
           y2={(height / 3) * line}
         />
       ))}
-      <path d={`${path} L ${width} ${height} L 0 ${height} Z`} fill="url(#chartGlow)" />
-      <path d={path} fill="none" stroke="#60a5fa" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
+      <path d={path} fill="none" stroke={stroke} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
     </svg>
   );
 }
 
-function TechnicalCard({ label, value }: { label: string; value: string }) {
+function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
       <p className="text-xs text-slate-500">{label}</p>
@@ -337,7 +393,7 @@ function TechnicalCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function AgentCard({ label, text }: { label: string; text: string }) {
+function InfoCard({ label, text }: { label: string; text: string }) {
   return (
     <article className="rounded-lg border border-white/10 bg-slate-950 p-4">
       <p className="text-sm font-medium text-blue-300">{label}</p>
@@ -426,4 +482,8 @@ function formatCompact(value: number | null) {
   return value === null
     ? "暫無"
     : new Intl.NumberFormat("zh-TW", { notation: "compact" }).format(value);
+}
+
+function padMonth(month: number) {
+  return String(month).padStart(2, "0");
 }

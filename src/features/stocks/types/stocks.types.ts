@@ -44,6 +44,22 @@ export type StockHistory = {
   unavailableReason: string | null;
 };
 
+export type StockMonthlyRevenue = {
+  date: string;
+  revenue: number;
+  revenueMonth: number;
+  revenueYear: number;
+  announceDate: string | null;
+  momPercent: number | null;
+  yoyPercent: number | null;
+};
+
+export type StockRevenue = {
+  dataset: "TaiwanStockMonthRevenue";
+  points: StockMonthlyRevenue[];
+  unavailableReason: string | null;
+};
+
 export type StockDetail = {
   summary: StockSummary;
   ohlc: {
@@ -69,6 +85,7 @@ export type StockDetail = {
     website: string | null;
   } | null;
   history: StockHistory;
+  revenue: StockRevenue;
   source: {
     provider: "TWSE";
     updatedDate: string;

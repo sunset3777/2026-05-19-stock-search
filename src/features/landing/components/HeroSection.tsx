@@ -44,7 +44,7 @@ export function HeroSection({
       return;
     }
 
-    setSearchError("找不到完全符合的股票，請輸入上市股票代號或公司簡稱。");
+    setSearchError("找不到完全符合的股票，請先從下方清單選擇，或換一個代號/名稱搜尋。");
   }
 
   function handleQueryChange(value: string) {
@@ -66,14 +66,11 @@ export function HeroSection({
               Stock Search
             </Link>
             <nav aria-label="主要導覽" className="hidden items-center gap-6 text-sm text-slate-300 sm:flex">
-              <a className="transition hover:text-white" href="#companies">
-                焦點公司
-              </a>
               <a className="transition hover:text-white" href="#watchlist">
                 股票清單
               </a>
               <a className="transition hover:text-white" href="#news">
-                資料來源
+                市場資料
               </a>
             </nav>
           </header>
@@ -81,10 +78,10 @@ export function HeroSection({
           <div className="max-w-2xl">
             <p className="text-sm font-medium text-blue-300">TWSE OpenAPI</p>
             <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-normal text-white sm:text-5xl lg:text-6xl">
-              查詢台股上市公司行情與基本資料
+              台股公開資料分析入口
             </h1>
             <p className="mt-6 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
-              串接臺灣證券交易所公開資料，提供上市股票收盤價、漲跌、成交量、本益比與公司基本資訊。
+              串接 TWSE 與 FinMind 資料，從股票搜尋、交易概況、股價走勢到月營收趨勢，建立單一股票研究流程。
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -94,17 +91,11 @@ export function HeroSection({
               >
                 瀏覽股票清單
               </a>
-              <a
-                className="inline-flex h-12 items-center justify-center rounded-md border border-white/15 px-5 text-sm font-semibold text-slate-100 transition hover:border-white/30 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300"
-                href="#companies"
-              >
-                查看焦點公司
-              </a>
             </div>
 
             <div className="mt-8 max-w-xl rounded-lg border border-white/10 bg-white/[0.03] p-3">
               <label className="text-sm font-medium text-slate-300" htmlFor="stock-search">
-                搜尋上市股票
+                搜尋股票
               </label>
               <div className="mt-3 flex flex-col gap-3 sm:flex-row">
                 <input
@@ -116,7 +107,7 @@ export function HeroSection({
                       handleSearchSubmit();
                     }
                   }}
-                  placeholder="輸入 2330、台積電、產業代號..."
+                  placeholder="輸入 2330、台積電..."
                   value={query}
                 />
                 <button
@@ -134,7 +125,7 @@ export function HeroSection({
               </div>
               {(searchError || (query.trim() && filteredStocks.length === 0 && !isLoading)) && (
                 <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm leading-6 text-amber-100">
-                  {searchError || "沒有符合條件的上市股票，請改用股票代號或公司簡稱搜尋。"}
+                  {searchError || "找不到符合條件的股票，請調整關鍵字。"}
                 </p>
               )}
               <div className="mt-3 flex flex-wrap gap-2">
@@ -155,7 +146,7 @@ export function HeroSection({
           <dl className="grid grid-cols-3 gap-3 border-t border-white/10 pt-6">
             <HeroMetric label="資料來源" value="TWSE" />
             <HeroMetric label="市場" value="上市" />
-            <HeroMetric label="更新頻率" value="日資料" />
+            <HeroMetric label="分析資料" value="股價 / 營收" />
           </dl>
         </div>
 
@@ -165,7 +156,7 @@ export function HeroSection({
               <>
                 <div className="flex items-center justify-between border-b border-white/10 pb-4">
                   <div>
-                    <p className="text-sm text-slate-400">目前選取</p>
+                    <p className="text-sm text-slate-400">目前焦點</p>
                     <h2 className="mt-1 text-2xl font-semibold text-white">
                       {selectedStock.name} {selectedStock.symbol}
                     </h2>
@@ -188,14 +179,14 @@ export function HeroSection({
                 <div className="rounded-lg border border-white/10 bg-slate-950 p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm text-slate-400">今日行情摘要</p>
+                      <p className="text-sm text-slate-400">交易概況</p>
                       <p className="mt-1 text-sm text-slate-200">
-                        成交值 {formatCompact(selectedStock.tradeValue)}，成交筆數{" "}
-                        {formatCompact(selectedStock.transactionCount)}。
+                        成交值 {formatCompact(selectedStock.tradeValue)}，交易筆數{" "}
+                        {formatCompact(selectedStock.transactionCount)}
                       </p>
                     </div>
                     <span className="shrink-0 rounded-md bg-slate-800 px-3 py-2 text-sm text-slate-300">
-                      {selectedStock.industry ?? "產業未提供"}
+                      {selectedStock.industry ?? "產業資料暫無"}
                     </span>
                   </div>
                   <div className="mt-5 h-28">
@@ -205,7 +196,7 @@ export function HeroSection({
               </>
             ) : (
               <div className="flex min-h-96 items-center justify-center rounded-lg border border-dashed border-white/10 bg-slate-950 p-6 text-center text-sm text-slate-400">
-                {isLoading ? "正在讀取 TWSE 公開資料..." : "目前沒有可顯示的股票資料。"}
+                {isLoading ? "正在讀取 TWSE 公開資料..." : "目前沒有可顯示的股票資料"}
               </div>
             )}
           </div>
@@ -236,7 +227,11 @@ function DashboardMetric({
   return (
     <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
       <p className="text-sm text-slate-400">{label}</p>
-      <p className={`mt-2 text-xl font-semibold ${tone === "negative" ? "text-rose-300" : tone === "positive" ? "text-emerald-300" : "text-white"}`}>
+      <p
+        className={`mt-2 text-xl font-semibold ${
+          tone === "negative" ? "text-rose-300" : tone === "positive" ? "text-emerald-300" : "text-white"
+        }`}
+      >
         {value}
       </p>
     </div>

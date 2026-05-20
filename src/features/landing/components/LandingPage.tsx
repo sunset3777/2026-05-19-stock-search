@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchStockList } from "@/features/stocks/api/client";
 import type { StockListResult, StockSummary } from "@/features/stocks/types/stocks.types";
 import { AgentSummary } from "./AgentSummary";
-import { CompanyFocus } from "./CompanyFocus";
 import { HeroSection } from "./HeroSection";
 import { NewsSection } from "./NewsSection";
 import { WatchlistSection } from "./WatchlistSection";
@@ -80,14 +79,10 @@ export function LandingPage() {
             {error}
           </div>
         )}
-        <CompanyFocus
-          onSelectStock={handleSelectStock}
-          selectedStock={selectedStock}
-          stocks={stocks}
-        />
         <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <WatchlistSection
             onSelectStock={handleSelectStock}
+            selectedStock={selectedStock}
             selectedSymbol={selectedStock?.symbol ?? null}
             stocks={stocks}
           />
