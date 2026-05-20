@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { agentInsights, marketNews, stockProfiles } from "../constants/landingData";
-import type { StockProfile } from "../types/landing.types";
+import { useEffect, useMemo, useState } from "react";
+import { fetchStockList } from "@/features/stocks/api/client";
+import type { StockListResult, StockSummary } from "@/features/stocks/types/stocks.types";
 import { AgentSummary } from "./AgentSummary";
 import { CompanyFocus } from "./CompanyFocus";
 import { HeroSection } from "./HeroSection";
@@ -11,55 +11,89 @@ import { WatchlistSection } from "./WatchlistSection";
 
 export function LandingPage() {
   const [query, setQuery] = useState("");
-  const [selectedSymbol, setSelectedSymbol] = useState(stockProfiles[0].symbol);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [stockResult, setStockResult] = useState<StockListResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const filteredStocks = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      setIsLoading(true);
+      setError("");
 
-    if (!normalizedQuery) {
-      return stockProfiles;
-    }
+      fetchStockList(query, 5)
+        .then((result) => {
+          if (controller.signal.aborted) {
+            return;
+          }
 
-    return stockProfiles.filter(
-      (stock) =>
-        stock.symbol.includes(normalizedQuery) ||
-        stock.name.toLowerCase().includes(normalizedQuery) ||
-        stock.industry.toLowerCase().includes(normalizedQuery),
-    );
+          setStockResult(result);
+          setSelectedSymbol((current) => current ?? result.stocks[0]?.symbol ?? null);
+        })
+        .catch((fetchError: Error) => {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          setError(fetchError.message);
+          setStockResult(null);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setIsLoading(false);
+          }
+        });
+    }, 250);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
   }, [query]);
 
-  const selectedStock =
-    stockProfiles.find((stock) => stock.symbol === selectedSymbol) ?? stockProfiles[0];
+  const stocks = useMemo(() => stockResult?.stocks ?? [], [stockResult]);
+  const selectedStock = useMemo(
+    () => stocks.find((stock) => stock.symbol === selectedSymbol) ?? stocks[0] ?? null,
+    [selectedSymbol, stocks],
+  );
 
-  function handleSelectStock(stock: StockProfile) {
+  function handleSelectStock(stock: StockSummary) {
     setSelectedSymbol(stock.symbol);
   }
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-50">
       <HeroSection
-        filteredStocks={filteredStocks}
+        filteredStocks={stocks}
+        isLoading={isLoading}
         onQueryChange={setQuery}
         onSelectStock={handleSelectStock}
         query={query}
         selectedStock={selectedStock}
+        sourceDate={stockResult?.source.updatedDate ?? null}
       />
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 pb-16 sm:px-8 lg:px-10">
+        {error && (
+          <div className="mt-8 rounded-lg border border-rose-300/20 bg-rose-400/10 p-4 text-sm leading-6 text-rose-100">
+            {error}
+          </div>
+        )}
         <CompanyFocus
           onSelectStock={handleSelectStock}
           selectedStock={selectedStock}
-          stocks={stockProfiles}
+          stocks={stocks}
         />
         <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <WatchlistSection
             onSelectStock={handleSelectStock}
-            selectedSymbol={selectedStock.symbol}
-            stocks={filteredStocks}
+            selectedSymbol={selectedStock?.symbol ?? null}
+            stocks={stocks}
           />
-          <NewsSection news={marketNews} selectedCompany={selectedStock.name} />
+          <NewsSection sourceDate={stockResult?.source.updatedDate ?? null} />
         </div>
-        <AgentSummary insights={agentInsights} />
+        <AgentSummary />
       </div>
     </main>
   );
