@@ -6,12 +6,13 @@ type MiniSparklineProps = {
 export function MiniSparkline({ values, variant = "small" }: MiniSparklineProps) {
   const width = variant === "large" ? 420 : 140;
   const height = variant === "large" ? 112 : 48;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const safeValues = values.length > 0 ? values : [0];
+  const min = Math.min(...safeValues);
+  const max = Math.max(...safeValues);
   const range = max - min || 1;
-  const points = values
+  const points = safeValues
     .map((value, index) => {
-      const x = (index / (values.length - 1)) * width;
+      const x = safeValues.length === 1 ? width / 2 : (index / (safeValues.length - 1)) * width;
       const y = height - ((value - min) / range) * height;
       return `${x},${y}`;
     })
@@ -27,7 +28,7 @@ export function MiniSparkline({ values, variant = "small" }: MiniSparklineProps)
       <polyline
         fill="none"
         points={points}
-        stroke="#60a5fa"
+        stroke="#2563eb"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={variant === "large" ? 4 : 3}
