@@ -5,7 +5,7 @@ async function fetchJson<T>(url: string): Promise<T> {
   const payload = (await response.json()) as ApiResponse<T>;
 
   if (!response.ok || "error" in payload) {
-    const message = "error" in payload ? payload.error.message : "資料讀取失敗";
+    const message = "error" in payload ? payload.error.message : "資料讀取失敗。";
     throw new Error(message);
   }
 

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchStockList } from "@/features/stocks/api/client";
 import type { StockListResult, StockSummary } from "@/features/stocks/types/stocks.types";
-import { AgentSummary } from "./AgentSummary";
 import { HeroSection } from "./HeroSection";
 import { NewsSection } from "./NewsSection";
 import { WatchlistSection } from "./WatchlistSection";
@@ -62,7 +61,7 @@ export function LandingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50">
+    <main className="min-h-screen bg-[#f7f9fc] text-slate-950">
       <HeroSection
         filteredStocks={stocks}
         isLoading={isLoading}
@@ -73,9 +72,9 @@ export function LandingPage() {
         sourceDate={stockResult?.source.updatedDate ?? null}
       />
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 pb-16 sm:px-8 lg:px-10">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-10 sm:px-8 lg:px-10">
         {error && (
-          <div className="mt-8 rounded-lg border border-rose-300/20 bg-rose-400/10 p-4 text-sm leading-6 text-rose-100">
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-700">
             {error}
           </div>
         )}
@@ -91,7 +90,6 @@ export function LandingPage() {
             sourceDate={stockResult?.source.updatedDate ?? null}
           />
         </div>
-        <AgentSummary />
       </div>
     </main>
   );
